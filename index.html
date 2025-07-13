@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CropCare Login / Signup</title>
+</head>
+<body>
+  <h1>CropCare Login / Signup</h1>
+
+  <h2>Signup</h2>
+  <input type="email" id="signup-email" placeholder="Email" />
+  <input type="password" id="signup-password" placeholder="Password" />
+  <button id="signupBtn">Sign Up</button>
+
+  <h2>Login</h2>
+  <input type="email" id="login-email" placeholder="Email" />
+  <input type="password" id="login-password" placeholder="Password" />
+  <button id="loginBtn">Login</button>
+
+  <script type="module">
+    // ✅ Import Firebase modules
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import {
+      getAuth,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      sendEmailVerification
+    } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import {
+      getFirestore,
+      doc,
+      setDoc
+    } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+    // ✅ Firebase Config
+    const firebaseConfig = {
+      apiKey: "AIzaSyCqKbvDNvl-fUvW95nmXVJ8XcajUeHXwiY",
+      authDomain: "cropcare-85f1f.firebaseapp.com",
+      projectId: "cropcare-85f1f",
+      storageBucket: "cropcare-85f1f.appspot.com",
+      messagingSenderId: "528066088568",
+      appId: "1:528066088568:web:8fafb687d90ce24360278d",
+      measurementId: "G-MHGTKQ4Y5J"
+    };
+
+    // ✅ Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // ✅ Signup with Email Verification
+    document.getElementById("signupBtn").addEventListener("click", async () => {
+      const email = document.getElementById("signup-email").value;
+      const password = document.getElementById("signup-password").value;
+
+      try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // ✅ Send email verification
+        await sendEmailVerification(user);
+        alert("Signup successful! A verification email has been sent to your inbox.");
+
+        // ✅ Save user to Firestore
+        await setDoc(doc(db, "users", user.uid), {
+          email: user.email,
+          createdAt: new Date()
+        });
+
+      } catch (error) {
+        alert("Signup error: " + error.message);
+      }
+    });
+
+    // ✅ Login only if email is verified
+    document.getElementById("loginBtn").addEventListener("click", async () => {
+      const email = document.getElementById("login-email").value;
+      const password = document.getElementById("login-password").value;
+
+      try {
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        if (!user.emailVerified) {
+          alert("Please verify your email before logging in.");
+          return;
+        }
+
+        alert("Login successful!");
+        window.location.href = "disease.html";
+
+      } catch (error) {
+        alert("Login error: " + error.message);
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CropCare - History</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f9f9f9; }
+    #gallery { display: flex; flex-wrap: wrap; gap: 20px; }
+    .image-card {
+      border: 1px solid #ccc;
+      padding: 10px;
+      width: 200px;
+      text-align: center;
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .image-card img {
+      width: 100%;
+      height: auto;
+      border-radius: 5px;
+    }
+    .delete-btn {
+      background-color: #ff4d4d;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      margin-top: 8px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    /* Confirm Popup */
+    #confirmOverlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    #confirmBox {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    #confirmBox button {
+      margin: 10px;
+      padding: 8px 12px;
+      font-size: 14px;
+    }
+    .confirm {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+    }
+    .cancel {
+      background-color: #ccc;
+      border: none;
+      border-radius: 4px;
+    }
+
+    /* Logout and Back buttons */
+    #logoutBtn, #backBtn {
+      padding: 10px 16px;
+      font-size: 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin: 10px 10px 0 0;
+    }
+
+    #logoutBtn {
+      background-color: #dc3545; /* red */
+      color: white;
+    }
+
+    #backBtn {
+      background-color: #28a745; /* green */
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <h1>Your Scan History</h1>
+  <p id="user-info">Checking login...</p>
+  <div id="gallery"></div>
+  <br>
+  <button id="backBtn">⬅ Back</button>
+  <button id="logoutBtn">🚪 Logout</button>
+
+  <!-- Delete Confirmation Popup -->
+  <div id="confirmOverlay">
+    <div id="confirmBox">
+      <p>Are you sure you want to delete this image?</p>
+      <button id="confirmYes" class="confirm">Yes, Delete</button>
+      <button id="confirmNo" class="cancel">Cancel</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import { getFirestore, collection, query, where, orderBy, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCqKbvDNvl-fUvW95nmXVJ8XcajUeHXwiY",
+      authDomain: "cropcare-85f1f.firebaseapp.com",
+      projectId: "cropcare-85f1f",
+      storageBucket: "cropcare-85f1f.appspot.com",
+      messagingSenderId: "528066088568",
+      appId: "1:528066088568:web:8fafb687d90ce24360278d"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    let currentUser = null;
+    let selectedDocId = null;
+
+    onAuthStateChanged(auth, async (user) => {
+      if (user && user.emailVerified) {
+        currentUser = user;
+        document.getElementById("user-info").textContent = `Logged in as: ${user.email}`;
+        loadImages();
+      } else {
+        alert("Access denied. Please log in with a verified account.");
+        window.location.href = "index.html";
+      }
+    });
+
+    async function loadImages() {
+      const gallery = document.getElementById("gallery");
+      gallery.innerHTML = "";
+
+      const q = query(
+        collection(db, "scans"),
+        where("userId", "==", currentUser.uid),
+        orderBy("uploadedAt", "desc")
+      );
+      const snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        gallery.innerHTML = "<p>No images uploaded yet.</p>";
+        return;
+      }
+
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const card = document.createElement("div");
+        card.className = "image-card";
+
+        const img = document.createElement("img");
+        img.src = `data:image/jpeg;base64,${data.base64Image}`;
+
+        const time = data.uploadedAt?.toDate?.().toLocaleString() || "Unknown time";
+        const timeText = document.createElement("p");
+        timeText.textContent = `Uploaded: ${time}`;
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.textContent = "Delete";
+        deleteBtn.className = "delete-btn";
+        deleteBtn.addEventListener("click", () => {
+          selectedDocId = docSnap.id;
+          document.getElementById("confirmOverlay").style.display = "flex";
+        });
+
+        card.appendChild(img);
+        card.appendChild(timeText);
+        card.appendChild(deleteBtn);
+        gallery.appendChild(card);
+      });
+    }
+
+    document.getElementById("confirmYes").addEventListener("click", async () => {
+      if (selectedDocId) {
+        await deleteDoc(doc(db, "scans", selectedDocId));
+        selectedDocId = null;
+        document.getElementById("confirmOverlay").style.display = "none";
+        loadImages();
+      }
+    });
+
+    document.getElementById("confirmNo").addEventListener("click", () => {
+      selectedDocId = null;
+      document.getElementById("confirmOverlay").style.display = "none";
+    });
+
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      alert("User Logged Out")
+      window.location.href = "index.html";
+      await signOut(auth);
+      
+      
+    });
+
+    document.getElementById("backBtn").addEventListener("click", () => {
+      window.location.href = "disease.html";
+    });
+  </script>
+</body>
+</html>
